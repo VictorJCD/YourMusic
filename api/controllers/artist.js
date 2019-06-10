@@ -1,53 +1,45 @@
 'use strict'
 
-//para trabajar con ficheros:
 var path = require('path');
 var fs = require('fs');
+var mongoosePaginate = require('mongoose-pagination');
 
-//para la paginacion:
-var mongoosePaginate = require('mongoose-Pagination');
-
-//vamos a usar los diferntes modelos de la api: album, artista, song y user, lo importamos:
 var Artist = require('../models/artist');
 var Album = require('../models/album');
 var Song = require('../models/song');
 
-//metodo: get artist
 function getArtist(req, res){
-	var artistId = req.params.id; //tenemos que pasar este parametro por rutas
+	var artistId = req.params.id;
 
-	Artist.findById(artistId, (err, artist) =>{
+	Artist.findById(artistId, (err, artist) => {
 		if(err){
-			res.status(500).send({message: 'Error en la peticion'});
+			res.status(500).send({message: 'Error en la petición.'});
 		}else{
 			if(!artist){
 				res.status(404).send({message: 'El artista no existe'});
 			}else{
-				res.status(200).send({artist, message: 'hola'});
+				res.status(200).send({artist});
 			}
 		}
 	});
 
-	//prueba:
-	//res.status(200).send({message: 'Metodo getArtist del controlador artist.js'});
 }
 
 function getArtists(req, res){
 	if(req.params.page){
-	//para usar la paginación, que va a recibir un parametro por la url llamado page
 		var page = req.params.page;
 	}else{
 		var page = 1;
 	}
 
-	var itemsPerPage = 6;
+	var itemsPerPage = 4;
 
 	Artist.find().sort('name').paginate(page, itemsPerPage, function(err, artists, total){
 		if(err){
-			res.status(500).send({message: 'Error en la peticion'});
+			res.status(500).send({message: 'Error en la petición.'});
 		}else{
 			if(!artists){
-				res.status(404).send({message: 'no hay artistas'});
+				res.status(404).send({message: 'No hay artistas !!'});
 			}else{
 				return res.status(200).send({
 					total_items: total,
@@ -59,7 +51,6 @@ function getArtists(req, res){
 }
 
 
-
 function saveArtist(req, res){
 	var artist = new Artist();
 
@@ -67,7 +58,7 @@ function saveArtist(req, res){
 	artist.name = params.name;
 	artist.description = params.description;
 	artist.image = 'null';
-	 
+
 	artist.save((err, artistStored) => {
 		if(err){
 			res.status(500).send({message: 'Error al guardar el artista'});
@@ -75,7 +66,7 @@ function saveArtist(req, res){
 			if(!artistStored){
 				res.status(404).send({message: 'El artista no ha sido guardado'});
 			}else{
-				res.status(200).send({message: artistStored});
+				res.status(200).send({artist: artistStored});
 			}
 		}
 	});
@@ -93,7 +84,7 @@ function updateArtist(req, res){
 			if(!artistUpdated){
 				res.status(404).send({message: 'El artista no ha sido actualizado'});
 			}else{
-				res.status(200).send({message: artistUpdated});
+				res.status(200).send({artist: artistUpdated});
 			}
 		}
 	});
@@ -104,40 +95,32 @@ function deleteArtist(req, res){
 
 	Artist.findByIdAndRemove(artistId, (err, artistRemoved) => {
 		if(err){
-			res.status(500).send({message: 'Error al borrar el artista'});
+			res.status(500).send({message: 'Error al eliminar el artista'});
 		}else{
 			if(!artistRemoved){
 				res.status(404).send({message: 'El artista no ha sido eliminado'});
 			}else{
-				console.log(artistRemoved);
-				//aqui se borra el artista
-				//res.status(200).send({message: artistRemoved});
-
-				//aqui se borramos el album/nes de ese artista
-				Album.find({artist: artistRemoved._id}).remove((err, albumRemoved) =>{
+				Album.find({artist: artistRemoved._id}).remove((err, albumRemoved)=>{
 					if(err){
 						res.status(500).send({message: 'Error al eliminar el album'});
+					}else{
+						if(!albumRemoved){
+							res.status(404).send({message: 'El album no ha sido eliminado'});
 						}else{
-							if(!albumRemoved){
-								res.status(404).send({message: 'El album no ha sido eliminado'});
-							}else{
-								//res.status(200).send({message: albumRemoved});
 
-								//aqui borramos las canciones:
-								Song.find({album: albumRemoved._id}).remove((err, songRemoved) =>{
-									if(err){
-										res.status(500).send({message: 'Error al eliminar la cancion'});
-										}else{
-											if(!songRemoved){
-												res.status(404).send({message: 'El cancion no ha sido eliminado'});
-											}else{
-												//res.status(200).send({message: songRemoved});
-												res.status(200).send({artist: artistRemoved});
-											}
-										}
-								});
-							}
+							Song.find({album: albumRemoved._id}).remove((err, songRemoved)=>{
+								if(err){
+									res.status(500).send({message: 'Error al eliminar la canción'});
+								}else{
+									if(!songRemoved){
+										res.status(404).send({message: 'La canción no ha sido eliminada'});
+									}else{
+										res.status(200).send({artist: artistRemoved});
+									}
+								}
+							});
 						}
+					}
 				});
 
 			}
@@ -151,36 +134,26 @@ function uploadImage(req, res){
 
 	if(req.files){
 		var file_path = req.files.image.path;
-
-		//vamos a recortar el string y conseguir el nombre de la imagen a secas.
 		var file_split = file_path.split('\\');
 		var file_name = file_split[2];
 
-		//solo quiero sacar la extension de la imagen por ejemplo:
 		var ext_split = file_name.split('\.');
 		var file_ext = ext_split[1];
 
-		//console.log(file_path);
-		//console.log(ext_split);
-		//console.log(file_name);
-		//console.log(file_ext);
-
-		//ahora vamos a comprobar si el fichero que he subido tiene la extension conrrecta:
 		if(file_ext == 'png' || file_ext == 'jpg' || file_ext == 'gif'){
 
-			Artist.findByIdAndUpdate(artistId, {image: file_name}, (err, artistUpdated)=>{
+			Artist.findByIdAndUpdate(artistId, {image: file_name}, (err, artistUpdated) => {
 				if(!artistId){
-				res.status(404).send({message: 'El usuario no ha podido actualizarse'});
+					res.status(404).send({message: 'No se ha podido actualizar el usuario'});
 				}else{
-					//console.log("usuario actualizado.")
 					res.status(200).send({artist: artistUpdated});
 				}
 			});
-			
-		}else{
-			res.status(200).send({message: 'Extension del archivo no válida'});
-		}
 
+		}else{
+			res.status(200).send({message: 'Extensión del archivo no valida'});
+		}
+		
 	}else{
 		res.status(200).send({message: 'No has subido ninguna imagen...'});
 	}
@@ -189,7 +162,6 @@ function uploadImage(req, res){
 function getImageFile(req, res){
 	var imageFile = req.params.imageFile;
 	var path_file = './uploads/artists/'+imageFile;
-	//comprobamos si existe el fichero en el servidor
 	fs.exists(path_file, function(exists){
 		if(exists){
 			res.sendFile(path.resolve(path_file));
@@ -198,6 +170,7 @@ function getImageFile(req, res){
 		}
 	});
 }
+
 
 module.exports = {
 	getArtist,
@@ -208,4 +181,3 @@ module.exports = {
 	uploadImage,
 	getImageFile
 };
-
